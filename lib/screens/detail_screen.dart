@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:wink_app/models/webtoon_detail_model.dart';
@@ -22,12 +23,48 @@ class DetailScreen extends StatefulWidget {
 class _DetailScreenState extends State<DetailScreen> {
   late Future<WebtoonDetailModel> webtoon;
   late Future<List<WebtoonEpisodeModel>> episodes;
+  late SharedPreferences prefs;
+  bool isLiked = false;
+  String storeKey = 'likedToons';
+
+  Future initPrefs() async {
+    prefs = await SharedPreferences.getInstance();
+    final likedToons = prefs.getStringList(storeKey);
+    if (likedToons != null) {
+      setState(() {
+        isLiked = likedToons.contains(widget.id);
+      });
+    } else {
+      //최초 1회
+      await prefs.setStringList(storeKey, []);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     webtoon = ApiService.getToonById(widget.id);
     episodes = ApiService.getLatestEpisodesById(widget.id);
+    initPrefs();
+  }
+
+  onHartTap() async {
+    final linkedToons = prefs.getStringList(storeKey);
+
+    if (linkedToons != null) {
+      if (isLiked) {
+        // unlike
+        linkedToons.remove(widget.id);
+      } else {
+        // like
+        linkedToons.add(widget.id);
+      }
+
+      await prefs.setStringList(storeKey, linkedToons);
+      setState(() {
+        isLiked = !isLiked;
+      });
+    }
   }
 
   @override
@@ -44,6 +81,15 @@ class _DetailScreenState extends State<DetailScreen> {
         ),
         elevation: 2,
         foregroundColor: Colors.grey[800],
+        actions: [
+          IconButton(
+            onPressed: onHartTap,
+            icon: Icon(
+              isLiked ? Icons.favorite : Icons.favorite_outline,
+              color: Colors.red[300],
+            ),
+          )
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
